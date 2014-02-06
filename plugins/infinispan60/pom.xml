@@ -21,7 +21,7 @@
             <activeByDefault>false</activeByDefault>
          </activation>
          <properties>
-            <version.infinispan>6.0.1-SNAPSHOT</version.infinispan>
+            <version.infinispan>6.0.2-SNAPSHOT</version.infinispan>
          </properties>
       </profile>
       <profile>
@@ -34,14 +34,14 @@
                <groupId>org.infinispan</groupId>
                <artifactId>infinispan-cachestore-leveldb</artifactId>
             	<!-- In Infinispan 6.0, cachestores can have independent versions -->
-               <version>6.0.0-SNAPSHOT</version>
+               <version>${version.infinispan}</version>
             </dependency>
          </dependencies>
       </profile>
    </profiles>
 
    <properties>
-      <version.infinispan>6.0.0.Final</version.infinispan>
+      <version.infinispan>6.0.1.Final</version.infinispan>
       <version.jbossts>4.16.3.Final</version.jbossts>
    </properties>
 
