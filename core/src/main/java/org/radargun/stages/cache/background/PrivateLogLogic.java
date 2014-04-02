@@ -67,7 +67,7 @@ class PrivateLogLogic extends AbstractLogLogic<PrivateLogValue> {
    }
 
    private PrivateLogValue getNextValue(PrivateLogValue prevValue) throws InterruptedException, BreakTxRequest {
-      if (prevValue.size() >= manager.getLogValueMaxSize()) {
+      if (prevValue.size() >= manager.getLogLogicConfiguration().getValueMaxSize()) {
          int checkedValues;
          // TODO some limit after which the stressor will terminate
          for (;;) {

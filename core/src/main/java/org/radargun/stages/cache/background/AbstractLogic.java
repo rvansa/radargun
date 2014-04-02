@@ -22,7 +22,7 @@ public abstract class AbstractLogic implements Logic {
    protected AbstractLogic(BackgroundOpsManager manager) {
       this.manager = manager;
       this.keyGenerator = manager.getKeyGenerator();
-      this.transactionSize = manager.getTransactionSize();
+      this.transactionSize = manager.getGeneralConfiguration().getTransactionSize();
       this.txCache = manager.getTransactionalCache();
    }
 

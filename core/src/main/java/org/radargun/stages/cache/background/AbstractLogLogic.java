@@ -53,11 +53,6 @@ abstract class AbstractLogLogic<ValueType> extends AbstractLogic {
    }
 
    @Override
-   public void loadData() {
-      // no data are loaded
-   }
-
-   @Override
    public void invoke() throws InterruptedException {
       keyId = nextKeyId();
       do {
@@ -108,7 +103,7 @@ abstract class AbstractLogLogic<ValueType> extends AbstractLogic {
          lastSuccessfulOpTimestamp = System.currentTimeMillis();
 
          // for non-transactional caches write the stressor last operation anytime (once in a while)
-         if (transactionSize <= 0 && operationId % manager.getLogCounterUpdatePeriod() == 0) {
+         if (transactionSize <= 0 && operationId % manager.getLogLogicConfiguration().getCounterUpdatePeriod() == 0) {
             writeStressorLastOperation();
          }
 
@@ -239,7 +234,7 @@ abstract class AbstractLogLogic<ValueType> extends AbstractLogic {
 
    protected Map<Integer, Long> getCheckedOperations(long minOperationId) throws StressorException, BreakTxRequest {
       Map<Integer, Long> minIds = new HashMap<Integer, Long>();
-      for (int thread = 0; thread < manager.getNumThreads() * manager.getClusterSize(); ++thread) {
+      for (int thread = 0; thread < manager.getGeneralConfiguration().getNumThreads() * manager.getClusterSize(); ++thread) {
          minIds.put(thread, getCheckedOperation(thread, minOperationId));
       }
       return minIds;
@@ -256,7 +251,7 @@ abstract class AbstractLogLogic<ValueType> extends AbstractLogic {
             throw new StressorException(e);
          }
          long readOperationId = lastCheck == null ? Long.MIN_VALUE : ((LogChecker.LastOperation) lastCheck).getOperationId();
-         if (readOperationId < minOperationId && manager.isIgnoreDeadCheckers() && !manager.isSlaveAlive(i)) {
+         if (readOperationId < minOperationId && manager.getLogLogicConfiguration().isIgnoreDeadCheckers() && !manager.isSlaveAlive(i)) {
             try {
                Object ignored = basicCache.get(LogChecker.ignoredKey(i, thread));
                if (ignored == null || (Long) ignored < minOperationId) {

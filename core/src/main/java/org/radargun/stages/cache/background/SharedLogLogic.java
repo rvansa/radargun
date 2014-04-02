@@ -73,14 +73,14 @@ class SharedLogLogic extends AbstractLogLogic<SharedLogValue> {
          return new SharedLogValue(stressor.id, operationId);
       } else if (prevValue != null && backupValue != null) {
          SharedLogValue joinValue = prevValue.join(backupValue);
-         if (joinValue.size() >= manager.getLogValueMaxSize()) {
+         if (joinValue.size() >= manager.getLogLogicConfiguration().getValueMaxSize()) {
             return filterAndAddOperation(joinValue);
          } else {
             return joinValue.with(stressor.id, operationId);
          }
       }
       SharedLogValue value = prevValue != null ? prevValue : backupValue;
-      if (value.size() < manager.getLogValueMaxSize()) {
+      if (value.size() < manager.getLogLogicConfiguration().getValueMaxSize()) {
          return value.with(stressor.id, operationId);
       } else {
          return filterAndAddOperation(value);
@@ -90,7 +90,7 @@ class SharedLogLogic extends AbstractLogLogic<SharedLogValue> {
    private SharedLogValue filterAndAddOperation(SharedLogValue value) throws StressorException, BreakTxRequest {
       Map<Integer, Long> operationIds = getCheckedOperations(value.minFrom(stressor.id));
       SharedLogValue filtered = value.with(stressor.id, operationId, operationIds);
-      if (filtered.size() > manager.getLogValueMaxSize()) {
+      if (filtered.size() > manager.getLogLogicConfiguration().getValueMaxSize()) {
          return null;
       } else {
          return filtered;

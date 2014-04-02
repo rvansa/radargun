@@ -32,7 +32,7 @@ public abstract class LogChecker extends Thread {
       super(name);
       keyGenerator = manager.getKeyGenerator();
       slaveIndex = manager.getSlaveIndex();
-      logCounterUpdatePeriod = manager.getLogCounterUpdatePeriod();
+      logCounterUpdatePeriod = manager.getLogLogicConfiguration().getCounterUpdatePeriod();
       pool = logCheckerPool;
       this.basicCache = manager.getBasicCache();
       this.debugableCache = manager.getDebugableCache();

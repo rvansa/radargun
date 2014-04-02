@@ -17,11 +17,14 @@ class LegacyLogic extends AbstractLogic {
    private final int keyRangeStart;
    private final int keyRangeEnd;
    private final List<Range> deadSlavesRanges;
+   private final boolean loadOnly;
    private final Random rand = new Random();
    private volatile long currentKey;
    private int remainingTxOps;
+   private boolean loaded;
 
-   LegacyLogic(BackgroundOpsManager manager, Range range, List<Range> deadSlavesRanges) {
+
+   LegacyLogic(BackgroundOpsManager manager, Range range, List<Range> deadSlavesRanges, boolean loaded) {
       super(manager);
       this.manager = manager;
       this.basicCache = manager.getBasicCache();
@@ -29,6 +32,8 @@ class LegacyLogic extends AbstractLogic {
       this.keyRangeStart = range.getStart();
       this.keyRangeEnd = range.getEnd();
       this.deadSlavesRanges = deadSlavesRanges;
+      this.loadOnly = manager.getLegacyLogicConfiguration().isLoadOnly();
+      this.loaded = loaded;
       currentKey = range.getStart();
       remainingTxOps = transactionSize;
    }
@@ -46,8 +51,8 @@ class LegacyLogic extends AbstractLogic {
 
    private void loadKeyRange(int from, int to) {
       int loaded_keys = 0;
-      boolean loadWithPutIfAbsent = manager.getLoadWithPutIfAbsent();
-      int entrySize = manager.getEntrySize();
+      boolean loadWithPutIfAbsent = manager.getLegacyLogicConfiguration().isLoadWithPutIfAbsent();
+      int entrySize = manager.getLegacyLogicConfiguration().getEntrySize();
       Random rand = new Random();
       for (long keyId = from; keyId < to && !stressor.isTerminated(); keyId++, loaded_keys++) {
          while (!stressor.isTerminated()) {
@@ -72,6 +77,14 @@ class LegacyLogic extends AbstractLogic {
    }
 
    public void invoke() throws InterruptedException {
+      if (!loaded) {
+         loadData();
+         loaded = true;
+      }
+      if (loadOnly) {
+         log.info("Data have been loaded, terminating.");
+         return;
+      }
       long startTime = 0;
       Object key = null;
       Operation operation = manager.getOperation(rand);
@@ -89,7 +102,7 @@ class LegacyLogic extends AbstractLogic {
             result = basicCache.get(key);
             if (result == null) operation = BasicOperations.GET_NULL;
          } else if (operation == BasicOperations.PUT) {
-            basicCache.put(key, generateRandomEntry(rand, manager.getEntrySize()));
+            basicCache.put(key, generateRandomEntry(rand, manager.getLegacyLogicConfiguration().getEntrySize()));
          } else if (operation == BasicOperations.REMOVE) {
             basicCache.remove(key);
          } else {
@@ -134,5 +147,9 @@ class LegacyLogic extends AbstractLogic {
    @Override
    public String getStatus() {
       return String.format("currentKey=%s, remainingTxOps=%d", keyGenerator.generateKey(currentKey), remainingTxOps);
+   }
+
+   public boolean isLoaded() {
+      return loaded;
    }
 }
