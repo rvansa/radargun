@@ -1,8 +1,8 @@
 package org.radargun.stages.cache.background;
 
-import java.util.Random;
-
 import org.radargun.stages.helpers.Range;
+
+import java.util.Random;
 
 /**
  * @author Radim Vansa &lt;rvansa@redhat.com&gt;
@@ -79,6 +79,26 @@ public class PrivateLogChecker extends LogChecker {
             }
          }
       }
+
+      @Override
+      public void created(Object key, Object value) {
+         log.trace("Created " + key + " -> " + value);
+         modified(key, value);
+      }
+
+      @Override
+      public void updated(Object key, Object value) {
+         log.trace("Updated " + key + " -> " + value);
+         modified(key, value);
+      }
+
+      @Override
+      protected void modified(Object key, Object value) {
+         if (value instanceof PrivateLogValue) {
+            PrivateLogValue logValue = (PrivateLogValue) value;
+            notify(logValue.getThreadId(), logValue.getOperationId(logValue.size() - 1), key);
+         } else super.modified(key, value);
+      }
    }
 
    private static class StressorRecord extends AbstractStressorRecord {
@@ -102,7 +122,7 @@ public class PrivateLogChecker extends LogChecker {
       @Override
       public void next() {
          currentKeyId = keyRangeStart + rand.nextInt(keyRangeSize);
-         currentOp++;
+         discardNotification(currentOp++);
       }
    }
 

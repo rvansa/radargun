@@ -1,17 +1,22 @@
 package org.radargun.stages.cache.background;
 
-import java.io.Serializable;
-import java.util.Random;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReferenceArray;
-
 import org.radargun.logging.Log;
 import org.radargun.logging.LogFactory;
 import org.radargun.stages.cache.generators.KeyGenerator;
 import org.radargun.traits.BasicOperations;
+import org.radargun.traits.CacheListeners;
 import org.radargun.traits.Debugable;
 import org.radargun.utils.Utils;
+
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 /**
  * @author Radim Vansa &lt;rvansa@redhat.com&gt;
@@ -20,6 +25,7 @@ public abstract class LogChecker extends Thread {
    protected static final Log log = LogFactory.getLog(LogChecker.class);
    protected static final boolean trace = log.isTraceEnabled();
    protected static final long UNSUCCESSFUL_CHECK_MIN_DELAY_MS = 10;
+   protected static final String LAST_OPERATION_PREFIX = "stressor_";
    protected final KeyGenerator keyGenerator;
    protected final int slaveIndex;
    protected final long logCounterUpdatePeriod;
@@ -47,7 +53,7 @@ public abstract class LogChecker extends Thread {
    }
 
    public static String lastOperationKey(int slaveAndThreadId) {
-      return String.format("stressor_%d", slaveAndThreadId);
+      return String.format(LAST_OPERATION_PREFIX + "%d", slaveAndThreadId);
    }
 
    public void requestTerminate() {
@@ -98,8 +104,10 @@ public abstract class LogChecker extends Thread {
                log.trace(String.format("Checking operation %d for thread %d on key %d (%s)",
                      record.getOperationId(), record.getThreadId(), record.getKeyId(), keyGenerator.generateKey(record.getKeyId())));
             }
+            boolean notification = record.hasNotification(record.getOperationId());
             Object value = findValue(record);
-            if (containsOperation(value, record)) {
+            boolean contains = containsOperation(value, record);
+            if (notification && contains) {
                if (trace) {
                   log.trace(String.format("Found operation %d for thread %d", record.getOperationId(), record.getThreadId()));
                }
@@ -122,18 +130,26 @@ public abstract class LogChecker extends Thread {
                      continue;
                   }
 
-                  log.error(String.format("Missing operation %d for thread %d on key %d (%s) %s",
-                        record.getOperationId(), record.getThreadId(), record.getKeyId(),
-                        keyGenerator.generateKey(record.getKeyId()),
-                        value == null ? " - entry was completely lost" : ""));
-                  if (trace) {
-                     log.trace("Not found in " + value);
+                  if (!notification) {
+                     log.error(String.format("Missing notification for operation %d for thread %d on key %d (%s), required for %d, notified for %s",
+                           record.getOperationId(), record.getThreadId(), record.getKeyId(),
+                           keyGenerator.generateKey(record.getKeyId()), record.requireNotify, record.notifiedOps));
+                     pool.reportMissingNotification();
                   }
-                  pool.reportMissingOperation();
-                  if (debugableCache != null) {
-                     debugableCache.debugInfo();
-                     debugableCache.debugKey(keyGenerator.generateKey(record.getKeyId()));
-                     debugableCache.debugKey(keyGenerator.generateKey(~record.getKeyId()));
+                  if (!contains) {
+                     log.error(String.format("Missing operation %d for thread %d on key %d (%s) %s",
+                           record.getOperationId(), record.getThreadId(), record.getKeyId(),
+                           keyGenerator.generateKey(record.getKeyId()),
+                           value == null ? " - entry was completely lost" : ""));
+                     if (trace) {
+                        log.trace("Not found in " + value);
+                     }
+                     pool.reportMissingOperation();
+                     if (debugableCache != null) {
+                        debugableCache.debugInfo();
+                        debugableCache.debugKey(keyGenerator.generateKey(record.getKeyId()));
+                        debugableCache.debugKey(keyGenerator.generateKey(~record.getKeyId()));
+                     }
                   }
                   record.next();
                } else {
@@ -162,12 +178,13 @@ public abstract class LogChecker extends Thread {
 
    protected abstract boolean containsOperation(Object value, AbstractStressorRecord record);
 
-   public static abstract class Pool {
+   public static abstract class Pool implements CacheListeners.UpdatedListener, CacheListeners.CreatedListener {
       private final int totalThreads;
       private final AtomicReferenceArray<AbstractStressorRecord> allRecords;
       private final ConcurrentLinkedQueue<AbstractStressorRecord> records = new ConcurrentLinkedQueue<AbstractStressorRecord>();
       private final BackgroundOpsManager manager;
       private final AtomicLong missingOperations = new AtomicLong();
+      private final AtomicLong missingNotifications = new AtomicLong();
       private final BasicOperations.Cache cache;
       private volatile long lastStoredOperationTimestamp = Long.MIN_VALUE;
 
@@ -176,14 +193,35 @@ public abstract class LogChecker extends Thread {
          allRecords = new AtomicReferenceArray<AbstractStressorRecord>(totalThreads);
          this.manager = manager;
          this.cache = manager.getBasicCache();
+         if (manager.getLogLogicConfiguration().isCheckNotifications()) {
+            CacheListeners listeners = manager.getListeners();
+            if (listeners == null) {
+               throw new IllegalArgumentException("Service does not support cache listeners");
+            }
+            Collection<CacheListeners.Type> supported = listeners.getSupportedListeners();
+            if (!supported.containsAll(Arrays.asList(CacheListeners.Type.CREATED, CacheListeners.Type.UPDATED))) {
+               throw new IllegalArgumentException("Service does not support required listener types; supported are: " + supported);
+            }
+            String cacheName = manager.getGeneralConfiguration().getCacheName();
+            manager.getListeners().addCreatedListener(cacheName, this);
+            manager.getListeners().addUpdatedListener(cacheName, this);
+         }
       }
 
       public long getMissingOperations() {
          return missingOperations.get();
       }
 
+      public long getMissingNotifications() {
+         return missingNotifications.get();
+      }
+
       public void reportMissingOperation() {
          missingOperations.incrementAndGet();
+      }
+
+      public void reportMissingNotification() {
+         missingNotifications.incrementAndGet();
       }
 
       public int getTotalThreads() {
@@ -261,6 +299,22 @@ public abstract class LogChecker extends Thread {
             }
          }
       }
+
+      protected void notify(int threadId, long operationId, Object key) {
+         allRecords.get(threadId).notify(operationId, key);
+      }
+
+      protected void requireNotify(int threadId, long operationId) {
+         allRecords.get(threadId).requireNotify(operationId);
+      }
+
+      protected void modified(Object key, Object value) {
+         if (key instanceof String && ((String) key).startsWith(LAST_OPERATION_PREFIX)) {
+            int threadId = Integer.parseInt(((String) key).substring(LAST_OPERATION_PREFIX.length()));
+            LastOperation last = (LastOperation) value;
+            requireNotify(threadId, last.getOperationId() + 1);
+         }
+      }
    }
 
    public static class LastOperation implements Serializable {
@@ -290,17 +344,21 @@ public abstract class LogChecker extends Thread {
       protected final Random rand;
       protected final int threadId;
       protected long currentKeyId;
-      protected long currentOp = -1;
+      protected volatile long currentOp = -1;
       private long lastStressorOperation = -1;
       private long lastUnsuccessfulCheckTimestamp = Long.MIN_VALUE;
+      private Set<Long> notifiedOps = new HashSet<Long>();
+      private long requireNotify = Long.MAX_VALUE;
 
       public AbstractStressorRecord(long seed, int threadId, long operationId) {
+         log.trace("Initializing record random with " + seed);
          this.rand = Utils.setRandomSeed(new Random(0), seed);
          this.threadId = threadId;
          this.currentOp = operationId;
       }
 
       public AbstractStressorRecord(Random rand, int threadId) {
+         log.trace("Initializing record random with " + Utils.getRandomSeed(rand));
          this.rand = rand;
          this.threadId = threadId;
       }
@@ -333,6 +391,31 @@ public abstract class LogChecker extends Thread {
 
       public long getOperationId() {
          return currentOp;
+      }
+
+      public synchronized void notify(long operationId, Object key) {
+         if (operationId < currentOp || !notifiedOps.add(operationId)) {
+            log.warn("Duplicit notification for operation " + operationId + " on key " + key);
+         }
+      }
+
+      public synchronized void discardNotification(long operationId) {
+         notifiedOps.remove(operationId);
+         // temporary:
+         for (long op : notifiedOps) {
+            if (op < operationId) log.error("Old operation " + op + " in " + notifiedOps);
+         }
+      }
+
+      public synchronized void requireNotify(long operationId) {
+         if (operationId < requireNotify) {
+            requireNotify = operationId;
+         }
+      }
+
+      public synchronized boolean hasNotification(long operationId) {
+         if (operationId < requireNotify) return true;
+         return notifiedOps.contains(operationId);
       }
    }
 }

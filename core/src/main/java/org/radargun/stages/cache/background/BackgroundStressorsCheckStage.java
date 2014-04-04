@@ -10,7 +10,7 @@ import org.radargun.stages.DefaultDistStageAck;
  * @author Radim Vansa &lt;rvansa@redhat.com&gt;
  */
 @Stage(doc = "Stage that checks the progress in background stressors and fails if something went wrong.")
-public class CheckBackgroundStressorsStage extends AbstractDistStage {
+public class BackgroundStressorsCheckStage extends AbstractDistStage {
 
    @Property(doc = "Do not write additional operations until all operations are confirmed. Default is false.")
    private boolean waitUntilChecked = false;
