@@ -1,5 +1,6 @@
 package org.radargun.config;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Map;
@@ -54,7 +55,9 @@ public class PropertyHelper {
       Object value = null;
       try {
          value = path.get(source);
-         Converter converter = path.getTargetAnnotation().converter().newInstance();
+         Constructor<? extends Converter<?>> ctor = path.getTargetAnnotation().converter().getDeclaredConstructor();
+         ctor.setAccessible(true);
+         Converter converter = ctor.newInstance();
          return converter.convertToString(value);
       } catch (IllegalAccessException e) {
          return "<not accessible>";
@@ -157,7 +160,9 @@ public class PropertyHelper {
             }
             Class<? extends Converter> converterClass = path.getTargetAnnotation().converter();
             try {
-               Converter converter = converterClass.newInstance();
+               Constructor<? extends Converter> ctor = converterClass.getDeclaredConstructor();
+               ctor.setAccessible(true);
+               Converter converter = ctor.newInstance();
                path.set(target, converter.convert(Evaluator.parseString(entry.getValue()), path.getTargetGenericType()));
                continue;
             } catch (InstantiationException e) {
