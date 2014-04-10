@@ -14,7 +14,7 @@
    <name>JGroups 3.5.x plugin for RadarGun</name>
 
    <properties>
-      <jgroups35.version>3.5.0.Alpha1</jgroups35.version>
+      <jgroups35.version>3.5.0.Beta4</jgroups35.version>
    </properties>
 
    <dependencies>
