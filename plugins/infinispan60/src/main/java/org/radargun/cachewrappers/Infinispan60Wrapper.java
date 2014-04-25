@@ -25,7 +25,7 @@ package org.radargun.cachewrappers;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 
-import org.infinispan.commons.util.FileLookupFactory;
+import org.infinispan.commons.util.FileLookup;
 import org.infinispan.configuration.parsing.ConfigurationBuilderHolder;
 import org.infinispan.configuration.parsing.ParserRegistry;
 import org.infinispan.container.entries.InternalCacheEntry;
@@ -37,7 +37,7 @@ import org.infinispan.container.entries.InternalCacheEntry;
 public class Infinispan60Wrapper extends Infinispan53Wrapper {
    @Override
    protected ConfigurationBuilderHolder createConfiguration(String configFile) throws FileNotFoundException {
-      InputStream input = FileLookupFactory.newInstance().lookupFileStrict(configFile, Thread.currentThread().getContextClassLoader());
+      InputStream input = new FileLookup().lookupFileStrict(configFile, Thread.currentThread().getContextClassLoader());
       return new ParserRegistry(Thread.currentThread().getContextClassLoader()).parse(input);
    }
 
