@@ -481,11 +481,16 @@ public class Utils {
       m.invoke(hotspotMBean, file, true);
    }
 
+   private static volatile Field randomSeedField = null;
+
    public static long getRandomSeed(Random random) {
       try {
-         Field seedField = Random.class.getDeclaredField("seed");
-         seedField.setAccessible(true);
-         return ((AtomicLong) seedField.get(random)).get();
+         if (randomSeedField == null) {
+            Field f = Random.class.getDeclaredField("seed");
+            f.setAccessible(true);
+            randomSeedField = f;
+         }
+         return ((AtomicLong) randomSeedField.get(random)).get();
       } catch (Exception e) {
          log.error("Cannot access seed", e);
          throw new RuntimeException(e);
