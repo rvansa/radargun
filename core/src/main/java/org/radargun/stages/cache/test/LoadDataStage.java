@@ -34,6 +34,9 @@ public class LoadDataStage extends AbstractDistStage {
    @Property(doc = "Total number of key-value entries that should be loaded into cache. Default is 100.")
    protected long numEntries = 100;
 
+   @Property(doc = "Initial key ID used for numbering the keys. Default is 0.")
+   protected long keyIdOffset = 0;
+
    @Property(doc = "Size of the value in bytes. Default is 1000.", converter = Fuzzy.IntegerConverter.class)
    protected Fuzzy<Integer> entrySize = Fuzzy.always(1000);
 
@@ -140,7 +143,7 @@ public class LoadDataStage extends AbstractDistStage {
    private LoaderIds getLoaderIds(int index) {
       int totalThreads = (loadAllKeys ? 1 : getExecutingSlaves().size()) * numThreads;
       int threadIndex = loadAllKeys ? index : getExecutingSlaveIndex() * numThreads + index;
-      return new RangeIds(numEntries * threadIndex / totalThreads, numEntries * (threadIndex + 1) / totalThreads);
+      return new RangeIds(keyIdOffset + numEntries * threadIndex / totalThreads, keyIdOffset + numEntries * (threadIndex + 1) / totalThreads);
    }
 
    private interface LoaderIds {
