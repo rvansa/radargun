@@ -290,17 +290,13 @@ public class Utils {
    }
 
    public static String prettyPrintTime(long time, TimeUnit unit) {
-      return prettyPrintMillis(unit.toMillis(time));
-   }
+      long nanos = unit.toNanos(time);
+      if (nanos < 10000) return nanos + " ns";
+      long micros = unit.toMicros(time);
+      if (micros < 10000) return micros + " us";
+      long millis = unit.toMillis(time);
+      if (millis < 1000) return millis + " ms";
 
-   /**
-    * Prints a time for display
-    *
-    * @param millis time in millis
-    * @return the time, represented as millis, seconds, minutes or hours as appropriate, with suffix
-    */
-   public static String prettyPrintMillis(long millis) {
-      if (millis < 1000) return millis + " milliseconds";
       NumberFormat nf = NumberFormat.getNumberInstance();
       nf.setMaximumFractionDigits(2);
       double toPrint = ((double) millis) / 1000;
@@ -317,6 +313,16 @@ public class Utils {
       toPrint = toPrint / 60;
 
       return nf.format(toPrint) + " hours";
+   }
+
+   /**
+    * Prints a time for display
+    *
+    * @param millis time in millis
+    * @return the time, represented as millis, seconds, minutes or hours as appropriate, with suffix
+    */
+   public static String prettyPrintMillis(long millis) {
+      return prettyPrintTime(millis, TimeUnit.MILLISECONDS);
    }
 
    public static void sleep(long duration) {
