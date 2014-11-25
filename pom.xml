@@ -19,10 +19,12 @@
       <module>plugins/infinispan52</module>
       <module>plugins/infinispan53</module>
       <module>plugins/infinispan60</module>
+      <module>plugins/infinispan70</module>
       <module>plugins/jgroups30</module>
       <module>plugins/jgroups32</module>
       <module>plugins/jgroups33</module>
       <module>plugins/jgroups34</module>
+      <module>plugins/jgroups35</module>
       <module>plugins/jbosscache2</module>
       <module>plugins/jbosscache3</module>
       <module>plugins/ehcache25</module>
@@ -48,12 +50,12 @@
          <!-- TODO: temporary profile for infinispan70, once there's a first release, add it among standard modules 
               after this is done, also leave a infinispan70-snapshot profile for building the plugin with SNAPSHOT version
               similar to how it's done in infinispan60 plugin -->
-         <id>infinispan70-snapshot</id>
+         <id>infinispan71-snapshot</id>
          <activation>
             <activeByDefault>false</activeByDefault>
          </activation>
          <modules>
-            <module>plugins/infinispan70</module>
+            <module>plugins/infinispan71</module>
          </modules>
          <build>
             <plugins>
@@ -171,12 +173,12 @@
          </build>
       </profile>
       <profile>
-         <id>jgroups35</id>
+         <id>jgroups36</id>
          <activation>
             <activeByDefault>false</activeByDefault>
          </activation>
          <modules>
-            <module>plugins/jgroups35</module>
+            <module>plugins/jgroups36</module>
          </modules>
          <build>
             <plugins>
@@ -186,16 +188,16 @@
                   <version>1.3</version>
                   <executions>
                      <execution>
-                        <id>prepare_jgroups35_plugin</id>
+                        <id>prepare_jgroups36_plugin</id>
                         <phase>verify</phase>
                         <goals>
                            <goal>run</goal>
                         </goals>
                         <configuration>
                            <tasks>
-                              <echo message="Packaging the JGroups 3.5.x plugin" />
-                              <copy todir="${distribution.artifact}/plugins/jgroups35">
-                                 <fileset dir="plugins/jgroups35/target/distribution/plugin-jgroups35-bin/plugin-jgroups35">
+                              <echo message="Packaging the JGroups 3.6.x plugin" />
+                              <copy todir="${distribution.artifact}/plugins/jgroups36">
+                                 <fileset dir="plugins/jgroups36/target/distribution/plugin-jgroups36-bin/plugin-jgroups36">
                                     <include name="**/*" />
                                  </fileset>
                               </copy>
@@ -267,6 +269,7 @@
                            <arg value="jgroups33" />
                            <arg value="jgroups34" />
                            <arg value="jgroups35" />
+                           <arg value="jgroups36" />
                            <arg value="jbosscache2" />
                            <arg value="jbosscache3" />
                            <arg value="ehcache25" />
