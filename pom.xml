@@ -132,6 +132,7 @@
             <module>plugins/jdg60</module>
             <module>plugins/jdg61</module>
             <module>plugins/jdg62</module>
+            <module>plugins/jdg64</module>
          </modules>
          <build>
             <plugins>
@@ -148,7 +149,7 @@
                         </goals>
                         <configuration>
                            <tasks>
-                              <echo message="Packaging the JDG 6.0.x, 6.1.x, and 6.2.x plugins" />
+                              <echo message="Packaging the JDG 6.0.x, 6.1.x, 6.2.x and 6.4.x plugins" />
                               <copy todir="${distribution.artifact}/plugins/jdg60">
                                  <fileset dir="plugins/jdg60/target/distribution/plugin-jdg60-bin/plugin-jdg60">
                                     <include name="**/*" />
@@ -161,6 +162,11 @@
                               </copy>
                               <copy todir="${distribution.artifact}/plugins/jdg62">
                                  <fileset dir="plugins/jdg62/target/distribution/plugin-jdg62-bin/plugin-jdg62">
+                                    <include name="**/*" />
+                                 </fileset>
+                              </copy>
+                              <copy todir="${distribution.artifact}/plugins/jdg64">
+                                 <fileset dir="plugins/jdg64/target/distribution/plugin-jdg64-bin/plugin-jdg64">
                                     <include name="**/*" />
                                  </fileset>
                               </copy>
