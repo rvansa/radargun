@@ -3,6 +3,8 @@ package org.radargun.stages.cache.generators;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Random;
 
 import org.radargun.config.DefinitionElement;
@@ -23,7 +25,10 @@ public class JpaValueGenerator implements ValueGenerator {
 
    private Class<?> clazz;
    private Class<? extends Annotation> entityClazz;
+   // TODO: replace these with MethodHandles
    private Constructor<?> ctor;
+   private Method size;
+   private Method check;
 
    @Init
    public void init() {
@@ -37,6 +42,16 @@ public class JpaValueGenerator implements ValueGenerator {
       } catch (Exception e) {
          // trace as this can happen on master node
          log.trace("Could not initialize generator " + this, e);
+      }
+      try {
+         size = clazz.getMethod("size");
+      } catch (NoSuchMethodException e) {
+         log.trace("Cannot find method size() on " + entityClazz.getName(), e);
+      }
+      try {
+         check = clazz.getMethod("check", int.class);
+      } catch (NoSuchMethodException e) {
+         log.trace("Cannot find method check(int) on " + entityClazz.getName(), e);
       }
    }
 
@@ -52,26 +67,33 @@ public class JpaValueGenerator implements ValueGenerator {
 
    @Override
    public int sizeOf(Object value) {
-      if (value instanceof JpaValue) {
-         return ((JpaValue) value).size();
-      } else {
-         throw new IllegalArgumentException();
+      if (size != null) {
+         try {
+            return ((Integer) size.invoke(value)).intValue();
+         } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+         }
       }
+      throw new UnsupportedOperationException();
    }
 
    @Override
    public boolean checkValue(Object value, Object key, int expectedSize) {
       if (clazz == null) throw new IllegalStateException("The generator was not properly initialized");
-      return clazz.isInstance(value) && ((JpaValue) value).check(expectedSize);
+      if (!clazz.isInstance(value)) {
+         return false;
+      }
+      if (check != null) {
+         try {
+            return ((Boolean) check.invoke(value, expectedSize)).booleanValue();
+         } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+         }
+      }
+      return true;
    }
 
-   public static String getRandomString(int size, Random random) {
-      StringBuilder sb = new StringBuilder(size);
-      for (int i = 0; i < size; ++i) {
-         sb.append((char) (random.nextInt(26) + 'A'));
-      }
-      return sb.toString();
-   }
+
 
    public abstract static class JpaValue implements Serializable {
       public int size() {

@@ -21,7 +21,7 @@
       </dependency>
       <dependency>
          <groupId>org.radargun</groupId>
-         <artifactId>radargun-cache</artifactId>
+         <artifactId>radargun-query</artifactId>
          <version>${project.version}</version>
       </dependency>
       <!-- Let's use JPA 2.1, though there is no maven spec-release -->
@@ -45,11 +45,6 @@
                <artifactId>hibernate-jpa-2.0-api</artifactId>
             </exclusion>
          </exclusions>
-      </dependency>
-      <dependency>
-         <groupId>org.radargun</groupId>
-         <artifactId>radargun-cache</artifactId>
-         <version>${project.version}</version>
       </dependency>
    </dependencies>
 </project>

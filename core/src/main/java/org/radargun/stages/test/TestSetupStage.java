@@ -102,7 +102,7 @@ public abstract class TestSetupStage extends AbstractDistStage {
       }
       if (runningTest.isTerminated()) {
          return errorResponse("Test was terminated during ramp-up");
-      } else if (rampUpMaxDuration > 0 && now >= startTime + rampUpMaxDuration) {
+      } else if (now < lastThreadsChange + rampUpMinSteadyPeriod) {
          return errorResponse("Ramp-up has not stabilized within timeout");
       } else if (runningTest.isReachedMax()) {
          return errorResponse("Max thread count reached during ramp-up");

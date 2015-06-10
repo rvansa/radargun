@@ -6,13 +6,13 @@ import javax.persistence.Column;
 import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
 
-import org.radargun.stages.cache.generators.JpaValueGenerator;
+import org.radargun.jpa.GeneratorHelper;
 
 /**
  * @author Radim Vansa &lt;rvansa@redhat.com&gt;
  */
 @Entity
-public class EmbeddedIdEntity extends JpaValueGenerator.JpaValue {
+public class EmbeddedIdEntity {
    @EmbeddedId
    public EmbeddableId embeddableId;
    @Column(length = 65535)
@@ -23,6 +23,6 @@ public class EmbeddedIdEntity extends JpaValueGenerator.JpaValue {
 
    public EmbeddedIdEntity(Object id, int size, Random random) {
       embeddableId = (EmbeddableId) id;
-      description = JpaValueGenerator.getRandomString(size, random);
+      description = GeneratorHelper.getRandomString(size, random);
    }
 }

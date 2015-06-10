@@ -6,15 +6,15 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 
+import org.radargun.jpa.GeneratorHelper;
 import org.radargun.logging.Log;
 import org.radargun.logging.LogFactory;
-import org.radargun.stages.cache.generators.JpaValueGenerator;
 
 /**
  * @author Radim Vansa &lt;rvansa@redhat.com&gt;
  */
 @Entity
-public class BasicEntity extends JpaValueGenerator.JpaValue {
+public class BasicEntity {
 
    private static Log log = LogFactory.getLog(BasicEntity.class);
 
@@ -28,6 +28,6 @@ public class BasicEntity extends JpaValueGenerator.JpaValue {
 
    public BasicEntity(Object id, int size, Random random) {
       this.id = (String) id;
-      description = JpaValueGenerator.getRandomString(size, random);
+      description = GeneratorHelper.getRandomString(size, random);
    }
 }
