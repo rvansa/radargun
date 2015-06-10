@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<infinispan xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns="urn:infinispan:config:7.2"
+            xsi:schemaLocation="urn:infinispan:config:7.2 http://www.infinispan.org/schemas/infinispan-config-7.2.xsd">
+
+   <jgroups>
+      <stack-file name="hibernate-jgroups" path="${hibernate.cache.infinispan.jgroups_cfg:jgroups-tcp.xml}"/>
+   </jgroups>
+
+   <cache-container name="SampleCacheManager" statistics="${infinispan.stats.enabled:false}" default-cache="default-cache" shutdown-hook="DEFAULT">
+      <jmx duplicate-domains="true" />
+      <transport stack="hibernate-jgroups" cluster="infinispan-hibernate-cluster"/>
+
+      <local-cache name="default-cache" statistics="${infinispan.stats.enabled:false}">
+         <transaction mode="NONE"/>
+      </local-cache>
+
+      <replicated-cache name="entity" statistics="${infinispan.stats.enabled:false}">
+         <transaction mode="NONE" />
+      </replicated-cache>
+
+      <replicated-cache name="immutable-entity" statistics="${infinispan.stats.enabled:false}">
+         <transaction mode="NONE"/>
+      </replicated-cache>
+
+      <replicated-cache name="collection" statistics="${infinispan.stats.enabled:false}">
+         <transaction mode="NONE" />
+      </replicated-cache>
+
+      <local-cache name="local-query" statistics="${infinispan.stats.enabled:false}">
+         <transaction mode="NONE" />
+      </local-cache>
+
+      <replicated-cache name="naturalid" statistics="${infinispan.stats.enabled:false}">
+         <transaction mode="NONE" />
+      </replicated-cache>
+
+      <replicated-cache name="timestamps" statistics="${infinispan.stats.enabled:false}" mode="ASYNC">
+         <transaction mode="NONE"/>
+      </replicated-cache>
+   </cache-container>
+</infinispan>

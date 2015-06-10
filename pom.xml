@@ -30,12 +30,16 @@
       <distribution.name>RadarGun-${project.version}</distribution.name>
       <distribution.artifact>target/distribution/${distribution.name}</distribution.artifact>
       <plugins.chm/>
+      <plugins.coherence/>
+      <plugins.coherence-latest/>
       <plugins.docker/>
       <plugins.jcache/>
       <plugins.ehcache/>
       <plugins.ehcache-latest/>
       <plugins.hazelcast/>
       <plugins.hazelcast-latest/>
+      <plugins.hibernate-orm/>
+      <plugins.hibernate-orm-latest/>
       <plugins.jbosscache/>
       <plugins.jbosscache-latest/>
       <plugins.jgroups/>
@@ -46,21 +50,20 @@
       <plugins.jdg/>
       <plugins.jdg-latest/>
       <plugins.coherence/>
-      <plugins.coherence-latest/>
       <plugins.process />
       <plugins.resteasy-http />
       <plugins.spark />
       <plugins.spymemcached />
       <plugins.tomcat/>
-      <reporter.default />
-      <reporter.perfrepo />
-      <extension.cache />
-      <extension.query />
-      <extension.example-extension />
-      <extension.hdrhistogram />
-      <extension.jpa />
-      <extension.mapreduce />
-      <extension.rest />
+      <reporter.default/>
+      <reporter.perfrepo/>
+      <extension.cache/>
+      <extension.example-extension/>
+      <extension.hdrhistogram/>
+      <extension.jpa/>
+      <extension.mapreduce/>
+      <extension.query/>
+      <extension.rest/>
    </properties>
 
    <profiles>
@@ -476,6 +479,21 @@
             <plugins.docker>docker</plugins.docker>
          </properties>
       </profile>
+      <profile>
+         <id>hibernate-orm</id>
+         <activation>
+            <property>
+               <name>hibernate-orm</name>
+            </property>
+         </activation>
+         <modules>
+            <module>plugins/hibernate-orm5</module>
+         </modules>
+         <properties>
+            <plugins.hibernate-orm-latest>hibernate-orm5</plugins.hibernate-orm-latest>
+            <plugins.hibernate-orm>${plugins.hibernate-orm-latest</plugins.hibernate-orm>
+         </properties>
+      </profile>
    </profiles>
 
    <build>
@@ -548,6 +566,7 @@
                         <pathconvert pathsep="," property="core_jar_list" refid="core_jars">
                            <mapper type="flatten" />
                         </pathconvert>
+                        <property name="extensions" value="${extension.example-extension},${extension.hdrhistogram},${extension.jpa}"/>
 
                         <macrodef name="package-extension">
                            <attribute name="extension"/>
@@ -652,10 +671,10 @@
                         <ac:if xmlns:ac="antlib:net.sf.antcontrib">
                            <isset property="package-latest"/>
                            <ac:then>
-                                <property name="plugin.list" value="${plugins.chm},${plugins.jcache},${plugins.ehcache-latest},${plugins.hazelcast-latest},${plugins.jbosscache-latest},${plugins.jgroups-latest},${plugins.infinispan-latest},${plugins.jdg-latest},${plugins.coherence-latest},${plugins.process},${plugins.resteasy-http},${plugins.spymemcached},${plugins.tomcat},${plugins.docker}" />
+                                <property name="plugin.list" value="${plugins.chm},${plugins.jcache},${plugins.ehcache-latest},${plugins.hazelcast-latest},${plugins.hibernate-orm-latest},${plugins.jbosscache-latest},${plugins.jgroups-latest},${plugins.infinispan-latest},${plugins.jdg-latest},${plugins.coherence-latest},${plugins.process},${plugins.resteasy-http},${plugins.spymemcached},${plugins.tomcat},${plugins.docker}" />
                            </ac:then>
                            <ac:else>
-                              <property name="plugin.list" value="${plugins.chm},${plugins.jcache},${plugins.ehcache},${plugins.hazelcast},${plugins.jbosscache},${plugins.jgroups},${plugins.infinispan},${plugins.jdg-early},${plugins.jdg},${plugins.coherence},${plugins.process},${plugins.resteasy-http},${plugins.spymemcached},${plugins.tomcat},${plugins.docker}"/>
+                              <property name="plugin.list" value="${plugins.chm},${plugins.jcache},${plugins.ehcache},${plugins.hazelcast},${plugins.hibernate-orm},${plugins.jbosscache},${plugins.jgroups},${plugins.infinispan},${plugins.jdg-early},${plugins.jdg},${plugins.coherence},${plugins.process},${plugins.resteasy-http},${plugins.spymemcached},${plugins.tomcat},${plugins.docker}"/>
                            </ac:else>
                         </ac:if>
                         <echo message="Plugin list: ${plugin.list}" />
@@ -782,7 +801,7 @@
                                     </exec>
                                  </ac:then>
                                  <ac:else>
-                                    <zip destfile="target/distribution/${distribution.name}.zip" basedir="target/distribution" excludes="**/bin/**,radargun-aggregator-bin/**">
+                                    <zip destfile="target/distribution/${distribution.name}.zip" basedir="target/distribution" excludes="**/bin/**,radargun-aggregator-bin/**,*.zip">
                                        <zipfileset dir="${distribution.artifact}/bin" filemode="755" prefix="${distribution.name}/bin" />
                                     </zip>
                                     <ac:if>
@@ -790,7 +809,7 @@
                                           <isset property="no-process"/>
                                        </not>
                                        <ac:then>
-                                          <zip destfile="target/distribution/${distribution.name}.zip" basedir="target/distribution" excludes="**/bin/**,radargun-aggregator-bin/**">
+                                          <zip destfile="target/distribution/${distribution.name}.zip" basedir="target/distribution" excludes="**/bin/**,radargun-aggregator-bin/**,*.zip">
                                              <zipfileset dir="${distribution.artifact}/plugins/process/bin" filemode="755" prefix="${distribution.name}/plugins/process/bin"/>
                                           </zip>
                                        </ac:then>
