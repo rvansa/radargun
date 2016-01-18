@@ -12,6 +12,9 @@ import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.NotFoundException;
 import org.radargun.logging.Log;
 import org.radargun.logging.LogFactory;
 
@@ -39,13 +42,19 @@ public final class ClasspathScanner {
 
       for (String resource : classPathParts) {
          File resourceFile = new File(resource);
+         ClassPool classPool = new ClassPool();
+         try {
+            classPool.appendClassPath(resource);
+         } catch (NotFoundException e) {
+            log.trace("Cannot load " + resource, e);
+         }
          if (resourceFile.isFile()) {
-            scanFile(resource, 0, superClass, annotationClass, requirePackage, consumer);
+            scanFile(classPool, resource, 0, superClass, annotationClass, requirePackage, consumer);
          } else if (resourceFile.isDirectory()) {
             int prefixLength = resource.length() + 1;
             try {
                Files.find(resourceFile.toPath(), Integer.MAX_VALUE, (path, attrs) -> attrs.isRegularFile() && (path.toString().endsWith(CLASS_SUFFIX) || path.toString().endsWith(JAR_SUFFIX))).forEach(file -> {
-                  scanFile(file.toString(), prefixLength, superClass, annotationClass, requirePackage, consumer);
+                  scanFile(classPool, file.toString(), prefixLength, superClass, annotationClass, requirePackage, consumer);
                });
             } catch (IOException e) {
                throw new RuntimeException(e);
@@ -54,18 +63,18 @@ public final class ClasspathScanner {
       }
    }
 
-   protected static <TClass, TAnnotation extends Annotation> void scanFile(String resource, int prefixLength,
-                                                                           Class<TClass> superClass, Class<TAnnotation> annotationClass, String requirePackage, Consumer<Class<? extends TClass>> consumer) {
+   protected static <TClass, TAnnotation extends Annotation> void scanFile(ClassPool classPool, String resource, int prefixLength,
+         Class<TClass> superClass, Class<TAnnotation> annotationClass, String requirePackage, Consumer<Class<? extends TClass>> consumer) {
       if (resource.endsWith(".jar")) {
-         scanJar(resource, superClass, annotationClass, requirePackage, consumer);
+         scanJar(classPool, resource, superClass, annotationClass, requirePackage, consumer);
       } else if (resource.endsWith(CLASS_SUFFIX)) {
          String className = resource.substring(prefixLength, resource.length() - CLASS_SUFFIX.length()).replaceAll("/", ".");
-         scanClass(className, superClass, annotationClass, requirePackage, consumer);
+         scanClass(classPool, className, superClass, annotationClass, requirePackage, consumer);
       }
    }
 
-   public static <TClass, TAnnotation extends Annotation> void scanJar(String path,
-                                                                       Class<TClass> superClass, Class<TAnnotation> annotationClass, String requirePackage, Consumer<Class<? extends TClass>> consumer) {
+   public static <TClass, TAnnotation extends Annotation> void scanJar(ClassPool classPool, String path,
+         Class<TClass> superClass, Class<TAnnotation> annotationClass, String requirePackage, Consumer<Class<? extends TClass>> consumer) {
       log.tracef("Looking for @%s %s, loading classes from %s", annotationClass.getSimpleName(), superClass.getSimpleName(), path);
       try (ZipInputStream inputStream = new ZipInputStream(new FileInputStream(path))) {
          for (; ; ) {
@@ -73,7 +82,7 @@ public final class ClasspathScanner {
             if (entry == null) break;
             if (!entry.getName().endsWith(CLASS_SUFFIX)) continue;
             String className = entry.getName().replace('/', '.').substring(0, entry.getName().length() - CLASS_SUFFIX.length());
-            scanClass(className, superClass, annotationClass, requirePackage, consumer);
+            scanClass(classPool, className, superClass, annotationClass, requirePackage, consumer);
          }
       } catch (FileNotFoundException e) {
          log.error("Cannot load executed JAR file '" + path + "'to find stages.");
@@ -82,34 +91,34 @@ public final class ClasspathScanner {
       }
    }
 
-   protected static <TClass, TAnnotation extends Annotation> void scanClass(String className,
-                                                                            Class<TClass> superClass, Class<TAnnotation> annotationClass, String requirePackage, Consumer<Class<? extends TClass>> consumer) {
+   protected static <TClass, TAnnotation extends Annotation> void scanClass(ClassPool classPool, String className,
+         Class<TClass> superClass, Class<TAnnotation> annotationClass, String requirePackage, Consumer<Class<? extends TClass>> consumer) {
       if (requirePackage != null && !className.startsWith(requirePackage)) return;
-      Class<?> clazz;
+      CtClass clazz;
       try {
-         System.setErr(NULL_PRINT_STREAM); // suppress any error output
-         clazz = Class.forName(className);
-         System.setErr(ERR_PRINT_STREAM);
-      } catch (ClassNotFoundException e) {
-         log.trace("Cannot load class " + className, e);
-         return;
-      } catch (NoClassDefFoundError e) {
-         log.trace("Cannot load class " + className, e);
-         return;
-      } catch (LinkageError e) {
-         log.trace("Cannot load class " + className, e);
-         return;
-      } catch (Throwable e) {
-         // static ctor can throw non-wrapped error
+         clazz = classPool.get(className);
+      } catch (NotFoundException e) {
          log.trace("Cannot load class " + className, e);
          return;
       }
-      TAnnotation annotation = clazz.getAnnotation(annotationClass);
-      if (annotation != null) {
-         if (!superClass.isAssignableFrom(clazz)) {
-            return;
+      boolean isAnnotated = false;
+      try {
+         isAnnotated = clazz.hasAnnotation(annotationClass);
+      } catch (RuntimeException e) {
+         // Javassist can throw runtime exceptions when the class definition appears inconsistent
+         log.trace("Cannot inspect class " + className, e);
+      }
+      if (isAnnotated) {
+         try {
+            Class<?> javaClass = Class.forName(className);
+            // We cannot do the check on javaassist CtClass since the superclass may be out of given ClassPool
+            if (superClass.isAssignableFrom(javaClass)) {
+               consumer.accept((Class<? extends TClass>) javaClass);
+            }
+         } catch (Throwable t) {
+            // Static constructor can throw any exception (without wrapping), therefore we cannot enlist them here
+            log.trace("Cannot load class " + className, t);
          }
-         consumer.accept((Class<? extends TClass>) clazz);
       }
    }
 }
