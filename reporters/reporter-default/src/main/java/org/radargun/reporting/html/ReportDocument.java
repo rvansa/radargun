@@ -12,6 +12,8 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import org.radargun.config.Property;
 import org.radargun.logging.Log;
@@ -26,7 +28,6 @@ import org.radargun.stats.representation.Histogram;
 import org.radargun.stats.representation.MeanAndDev;
 import org.radargun.stats.representation.OperationThroughput;
 import org.radargun.stats.representation.Percentile;
-import org.radargun.utils.Projections;
 import org.radargun.utils.Utils;
 
 /**
@@ -130,12 +131,7 @@ public abstract class ReportDocument extends HtmlDocument {
 
    protected boolean addToChart(ComparisonChart chart, String subCategory, String operation, ChartType chartType,
                                 Map<Report, List<Aggregation>> reportAggregationMap) {
-      Map<String, List<Report>> byConfiguration = Projections.groupBy(reportAggregationMap.keySet(), new Projections.Func<Report, String>() {
-         @Override
-         public String project(Report report) {
-            return report.getConfiguration().name;
-         }
-      });
+      Map<String, List<Report>> byConfiguration = reportAggregationMap.keySet().stream().collect(Collectors.groupingBy(report -> report.getConfiguration().name));
       for (Map.Entry<Report, List<Aggregation>> entry : reportAggregationMap.entrySet()) {
          for (Aggregation aggregation : entry.getValue()) {
             OperationStats operationStats = aggregation.totalStats.getOperationsStats().get(operation);
@@ -201,42 +197,29 @@ public abstract class ReportDocument extends HtmlDocument {
    }
 
    public int getMaxThreads(List<Aggregation> aggregations, final int slaveIndex) {
-      Integer maxThreads = Projections.max(Projections.project(aggregations, new Projections.Func<Aggregation, Integer>() {
-         @Override
-         public Integer project(Aggregation aggregation) {
+      return aggregations.stream().map(aggregation -> {
             List<Statistics> statistics = aggregation.iteration.getStatistics(slaveIndex);
             return statistics == null ? 0 : statistics.size();
-         }
-      }));
-      return maxThreads != null ? maxThreads : 0;
+         }).max(Integer::max).orElse(0);
    }
 
-   protected static String concatOrDefault(Collection<String> values, String def) {
-      if (values.isEmpty()) {
-         return def;
-      } else {
-         StringBuilder sb = new StringBuilder();
-         for (String value : values) {
-            if (sb.length() > 0) sb.append(", ");
-            sb.append(value);
-         }
-         return sb.toString();
-      }
+   protected static Collector<String, StringBuilder, String> concatOrDefault(String def) {
+      return Collector.of(StringBuilder::new,
+            (sb, s) -> {
+               if (sb.length() > 0) sb.append(", ");
+               sb.append(s);
+            },
+            (sb1, sb2) -> sb1.length() > 0 ? sb1.append(", ").append(sb2.toString()) : sb2,
+            sb -> sb.length() == 0 ? def : sb.toString()
+      );
    }
 
    protected static boolean hasRepresentation(final String operation, Map<Report, List<Aggregation>> reportAggregationMap, final Class<?> representationClass, final Object... representationArgs) {
-      return Projections.any(Projections.notNull(reportAggregationMap.values()), new Projections.Condition<List<Aggregation>>() {
-         @Override
-         public boolean accept(List<Aggregation> aggregations) {
-            return Projections.any(Projections.notNull(aggregations), new Projections.Condition<Aggregation>() {
-               @Override
-               public boolean accept(Aggregation aggregation) {
-                  OperationStats operationStats = aggregation.totalStats.getOperationsStats().get(operation);
-                  return operationStats != null && operationStats.getRepresentation(representationClass, representationArgs) != null;
-               }
-            });
-         }
-      });
+      return reportAggregationMap.values().stream().anyMatch(as -> as != null && as.stream().anyMatch(aggregation -> {
+         if (aggregation == null) return false;
+         OperationStats operationStats = aggregation.totalStats.getOperationsStats().get(operation);
+         return operationStats != null && operationStats.getRepresentation(representationClass, representationArgs) != null;
+      }));
    }
 
    public void createCharts(String operation, int clusterSize) throws IOException {
@@ -513,7 +496,7 @@ public abstract class ReportDocument extends HtmlDocument {
                }
             }
          }
-         iterations.add(concatOrDefault(iterationValues, "iteration " + String.valueOf(iteration)));
+         iterations.add(iterationValues.stream().collect(concatOrDefault("iteration " + String.valueOf(iteration))));
       }
 
       return new OperationData(presentedStatistics, iterations);
