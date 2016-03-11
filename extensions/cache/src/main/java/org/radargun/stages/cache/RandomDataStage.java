@@ -20,6 +20,7 @@ import org.radargun.stages.AbstractDistStage;
 import org.radargun.state.SlaveState;
 import org.radargun.stats.DefaultOperationStats;
 import org.radargun.stats.DefaultStatistics;
+import org.radargun.stats.Request;
 import org.radargun.stats.Statistics;
 import org.radargun.traits.BasicOperations;
 import org.radargun.traits.CacheInformation;
@@ -113,6 +114,10 @@ public class RandomDataStage extends AbstractDistStage {
 
    @Property(doc = "The maximum number of seconds to sleep before retrying a failed put command. The default is 5.")
    public int maxSleepInterval = 5;
+
+   @Property(name = "statistics", doc = "Type of gathered statistics. Default are the 'default' statistics " +
+         "(fixed size memory footprint for each operation).", complexConverter = Statistics.Converter.class)
+   private Statistics statisticsPrototype = new DefaultStatistics(new DefaultOperationStats());
 
    @InjectTrait(dependency = InjectTrait.Dependency.MANDATORY)
    private BasicOperations basicOperations;
@@ -245,12 +250,12 @@ public class RandomDataStage extends AbstractDistStage {
       BasicOperations.Cache<String, Object> cache = basicOperations.getCache(bucket);
       try {
          byte[] buffer = new byte[valueSize];
-         Statistics stats = new DefaultStatistics(new DefaultOperationStats());
+         Statistics stats = statisticsPrototype.copy();
          stats.begin();
          while (putCount > 0) {
             String key = Integer.toString(slaveState.getSlaveIndex()) + "-" + putCount + ":" + TimeService.nanoTime();
 
-            long start = -1;
+            Request request;
             boolean success = false;
             String cacheData = null;
 
@@ -267,21 +272,20 @@ public class RandomDataStage extends AbstractDistStage {
                         log.info(i + ": Writing string length " + valueSize + " to cache key: " + key);
                      }
 
-                     start = TimeService.nanoTime();
+                     request = stats.startRequest();
                      cache.put(key, cacheData);
                   } else {
                      if (putCount % 5000 == 0) {
                         log.info(i + ": Writing " + valueSize + " bytes to cache key: " + key);
                      }
 
-                     start = TimeService.nanoTime();
+                     request = stats.startRequest();
                      cache.put(key, buffer);
                   }
-                  long durationNanos = TimeService.nanoTime() - start;
-                  stats.registerRequest(durationNanos, BasicOperations.PUT);
+                  request.succeeded(BasicOperations.PUT);
                   if (printWriteStatistics) {
                      log.info("Put on slave" + slaveState.getSlaveIndex() + " took "
-                        + Utils.prettyPrintTime(durationNanos, TimeUnit.NANOSECONDS));
+                        + Utils.prettyPrintTime(request.duration(), TimeUnit.NANOSECONDS));
                   }
                   success = true;
                   break;
