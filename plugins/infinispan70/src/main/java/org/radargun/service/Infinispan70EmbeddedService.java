@@ -1,5 +1,6 @@
 package org.radargun.service;
 
+import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.jgroups.protocols.TP;
 import org.radargun.Service;
@@ -22,8 +23,13 @@ public class Infinispan70EmbeddedService extends Infinispan60EmbeddedService {
    }
 
    protected void setDiagnostics() {
-      JGroupsTransport transport = (JGroupsTransport) cacheManager.getTransport();
-      TP transportprotocol = (TP) transport.getChannel().getProtocolStack().findProtocol(TP.class);
+      Transport transport = cacheManager.getTransport();
+      if (!(transport instanceof JGroupsTransport)) {
+         log.warn("Cannot set diagnostics since the transport is not JGroups");
+         return;
+      }
+      JGroupsTransport jgroupsTransport = (JGroupsTransport) transport;
+      TP transportprotocol = (TP) jgroupsTransport.getChannel().getProtocolStack().findProtocol(TP.class);
       if (Boolean.TRUE.equals(enableDiagnostics)) {
          transportprotocol.enableDiagnostics();
          log.debug("Enabling diagnostics in the transport protocol");

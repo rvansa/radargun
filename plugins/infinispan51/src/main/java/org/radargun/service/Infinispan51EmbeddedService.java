@@ -13,6 +13,8 @@ import org.infinispan.configuration.parsing.ConfigurationBuilderHolder;
 import org.infinispan.configuration.parsing.Parser;
 import org.infinispan.distribution.ch.ConsistentHash;
 import org.infinispan.manager.DefaultCacheManager;
+import org.infinispan.remoting.transport.Transport;
+import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.transaction.TransactionMode;
 import org.jgroups.JChannel;
@@ -136,7 +138,12 @@ public class Infinispan51EmbeddedService extends InfinispanEmbeddedService {
    @Override
    protected DefaultCacheManager createCacheManager(String configFile) throws IOException {
       ConfigurationBuilderHolder cbh = createConfiguration(configFile);
-      cbh.getGlobalConfigurationBuilder().transport().transport(partitionable.createTransport());
+      Transport transport = cbh.getGlobalConfigurationBuilder().transport().getTransport();
+      if (transport == null || transport instanceof JGroupsTransport) {
+         cbh.getGlobalConfigurationBuilder().transport().transport(partitionable.createTransport());
+      } else {
+         log.warn("Cannot hook transport since unknown transport is used: " + transport);
+      }
       DefaultCacheManager cm = new DefaultCacheManager(cbh, false);
       beforeCacheManagerStart(cm);
       return cm;

@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.infinispan.manager.DefaultCacheManager;
 import org.infinispan.remoting.transport.Address;
+import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.jgroups.JChannel;
 import org.jgroups.protocols.DISCARD;
@@ -159,7 +160,7 @@ public class InfinispanKillableLifecycle extends InfinispanLifecycle implements 
          list.add(parentChannel);
          return list;
       }
-      JGroupsTransport transport;
+      Transport transport;
       while (service.cacheManager == null) {
          if (TimeService.currentTimeMillis() > deadline) {
             return list;
@@ -177,7 +178,7 @@ public class InfinispanKillableLifecycle extends InfinispanLifecycle implements 
       }
       if (!hasClustered) return list;
       for (; ; ) {
-         transport = (JGroupsTransport) ((DefaultCacheManager) service.cacheManager).getTransport();
+         transport = ((DefaultCacheManager) service.cacheManager).getTransport();
          if (transport != null) break;
          if (TimeService.currentTimeMillis() > deadline) {
             return list;
@@ -185,9 +186,12 @@ public class InfinispanKillableLifecycle extends InfinispanLifecycle implements 
          log.trace("Transport is not ready");
          Thread.yield();
       }
+      if (!(transport instanceof JGroupsTransport)) {
+         return list;
+      }
       JChannel channel;
       for (; ; ) {
-         channel = (JChannel) transport.getChannel();
+         channel = (JChannel) ((JGroupsTransport) transport).getChannel();
          if (channel != null && channel.getName() != null && channel.isOpen()) break;
          if (TimeService.currentTimeMillis() > deadline) {
             return list;

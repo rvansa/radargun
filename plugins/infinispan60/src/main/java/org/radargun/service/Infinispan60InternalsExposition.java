@@ -10,6 +10,7 @@ import org.infinispan.executors.LazyInitializingBlockingTaskAwareExecutorService
 import org.infinispan.executors.LazyInitializingExecutorService;
 import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.factories.KnownComponentNames;
+import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.infinispan.util.concurrent.BlockingTaskAwareExecutorServiceImpl;
 import org.jgroups.protocols.TP;
@@ -43,9 +44,9 @@ public class Infinispan60InternalsExposition implements InternalsExposition {
       GlobalComponentRegistry globalComponentRegistry = service.cacheManager.getGlobalComponentRegistry();
       addValues(findTPE(globalComponentRegistry.getComponent(KnownComponentNames.ASYNC_TRANSPORT_EXECUTOR)), "Async Transport Executor", values);
       addValues(findTPE(globalComponentRegistry.getComponent(KnownComponentNames.REMOTE_COMMAND_EXECUTOR)), "Remote Commands Executor", values);
-      JGroupsTransport transport = (JGroupsTransport) service.cacheManager.getTransport();
-      if (transport != null) {
-         TP tp = (TP) transport.getChannel().getProtocolStack().getBottomProtocol();
+      Transport transport = service.cacheManager.getTransport();
+      if (transport != null && transport instanceof JGroupsTransport) {
+         TP tp = (TP) ((JGroupsTransport) transport).getChannel().getProtocolStack().getBottomProtocol();
          addValues((ThreadPoolExecutor) tp.getOOBThreadPool(), "OOB", values);
       }
       return values;

@@ -13,6 +13,7 @@ import org.infinispan.configuration.parsing.ConfigurationBuilderHolder;
 import org.infinispan.configuration.parsing.ParserRegistry;
 import org.infinispan.container.entries.InternalCacheEntry;
 import org.infinispan.manager.DefaultCacheManager;
+import org.infinispan.remoting.transport.Transport;
 import org.infinispan.remoting.transport.jgroups.JGroupsTransport;
 import org.radargun.Service;
 import org.radargun.config.Destroy;
@@ -95,12 +96,17 @@ public class Infinispan60EmbeddedService extends Infinispan53EmbeddedService {
          scheduledExecutor.schedule(new Runnable() {
             @Override
             public void run() {
-               JGroupsTransport transport = (JGroupsTransport) cacheManager.getTransport();
-               if (transport == null || transport.getChannel() == null || !transport.getChannel().isOpen()) {
+               Transport transport = cacheManager.getTransport();
+               if (transport != null && !(transport instanceof JGroupsTransport)) {
+                  log.warn("Transport is not a JGroups transport - cannot dump stats.");
+                  return;
+               }
+               JGroupsTransport jgroupsTransport = (JGroupsTransport) transport;
+               if (jgroupsTransport == null || jgroupsTransport.getChannel() == null || !jgroupsTransport.getChannel().isOpen()) {
                   // JGroups are not initialized, wait
                   scheduledExecutor.schedule(this, 1, TimeUnit.SECONDS);
                } else {
-                  jgroupsDumper = new JGroupsDumper(transport.getChannel().getProtocolStack());
+                  jgroupsDumper = new JGroupsDumper(jgroupsTransport.getChannel().getProtocolStack());
                   jgroupsDumper.start();
                }
             }
