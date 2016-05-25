@@ -36,6 +36,7 @@
       <plugins.jbosscache/>
       <plugins.jgroups/>
       <plugins.infinispan/>
+      <plugins.infinispan-snapshot/>
       <plugins.jdg/>
       <plugins.jdg70/>
       <plugins.coherence/>
@@ -271,6 +272,20 @@
          </modules>
          <properties>
             <plugins.infinispan>infinispan4,infinispan50,infinispan51,infinispan52,infinispan53,infinispan60,infinispan70,infinispan71,infinispan72,infinispan80,infinispan81,infinispan82</plugins.infinispan>
+         </properties>
+      </profile>
+      <profile>
+         <id>infinispan-snapshot</id>
+         <activation>
+            <property>
+               <name>infinispan90.infinispan.version</name>
+            </property>
+         </activation>
+         <modules>
+            <module>plugins/infinispan90</module>
+         </modules>
+         <properties>
+            <plugins.infinispan-snapshot>infinispan90</plugins.infinispan-snapshot>
          </properties>
       </profile>
       <profile>
@@ -554,7 +569,7 @@
 
                         <echo message="Packaging plugins: " />
                         <!-- Note: JCache needs to be here for schema generation, although it can't be used on its own -->
-                        <ac:for list="${plugins.chm},${plugins.jcache},${plugins.ehcache},${plugins.hazelcast},${plugins.jbosscache},${plugins.jgroups},${plugins.infinispan},${plugins.jdg},${plugins.jdg70},${plugins.coherence},${plugins.process},${plugins.resteasy-http},${plugins.spymemcached}" param="plugin" xmlns:ac="antlib:net.sf.antcontrib">
+                        <ac:for list="${plugins.chm},${plugins.jcache},${plugins.ehcache},${plugins.hazelcast},${plugins.jbosscache},${plugins.jgroups},${plugins.infinispan},${plugins.infinispan-snapshot},${plugins.jdg},${plugins.jdg70},${plugins.coherence},${plugins.process},${plugins.resteasy-http},${plugins.spymemcached}" param="plugin" xmlns:ac="antlib:net.sf.antcontrib">
                            <sequential>
                               <echo message="Packaging plugin @{plugin}..." />
                               <ac:if>
