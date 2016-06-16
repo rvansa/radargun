@@ -14,7 +14,7 @@
          </setup>
       </config>
       <config name="Hazelcast 3">
-         <setup plugin="hazelcast3">
+         <setup plugin="hazelcast36">
             <hazelcast xmlns="urn:radargun:plugins:hazelcast3:3.0" file="dist-sync.xml"/>
          </setup>
       </config>
