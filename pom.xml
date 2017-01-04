@@ -784,8 +784,17 @@
                                  <ac:else>
                                     <zip destfile="target/distribution/${distribution.name}.zip" basedir="target/distribution" excludes="**/bin/**,radargun-aggregator-bin/**">
                                        <zipfileset dir="${distribution.artifact}/bin" filemode="755" prefix="${distribution.name}/bin" />
-                                       <zipfileset dir="${distribution.artifact}/plugins/process/bin" filemode="755" prefix="${distribution.name}/plugins/process/bin"/>
                                     </zip>
+                                    <ac:if>
+                                       <not>
+                                          <isset property="no-process"/>
+                                       </not>
+                                       <ac:then>
+                                          <zip destfile="target/distribution/${distribution.name}.zip" basedir="target/distribution" excludes="**/bin/**,radargun-aggregator-bin/**">
+                                             <zipfileset dir="${distribution.artifact}/plugins/process/bin" filemode="755" prefix="${distribution.name}/plugins/process/bin"/>
+                                          </zip>
+                                       </ac:then>
+                                    </ac:if>
                                  </ac:else>
                               </ac:if>
                            </ac:then>
