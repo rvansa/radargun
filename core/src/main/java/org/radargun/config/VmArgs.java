@@ -190,6 +190,10 @@ public class VmArgs implements Serializable {
       }
    }
 
+   public enum FlightRecorderLogLevel {
+      ERROR, WARN, INFO, DEBUG, TRACE
+   }
+
    private class FlightRecorder implements VmArg {
       @Property(doc = "Start flight recording for the benchmark.", optional = false)
       private boolean enabled = false;
@@ -200,6 +204,15 @@ public class VmArgs implements Serializable {
       @Property(doc = "Settings file with recording configuration.")
       private String settings;
 
+      @Property(doc = "Maximum stack trace depth for samples/events. Setting this may have adverse effect on performance.")
+      private Integer stackdepth;
+
+      @Property(doc = "Internal log level.")
+      private FlightRecorderLogLevel loglevel;
+
+      @Property(doc = "Automatically setup -XX:+DebugNonSafepoints -XX:+UnlockDiagnosticVmOptions.")
+      private boolean forceDebugNonSafepoints = true;
+
       @Override
       public void setArgs(List<String> args) {
          if (!enabled)
@@ -209,9 +222,29 @@ public class VmArgs implements Serializable {
             recordingParams.append(",filename=").append(filename);
          if (settings != null)
             recordingParams.append(",settings=").append(settings);
+         StringBuilder flightRecorderOptions = null;
+         if (stackdepth != null)
+            flightRecorderOptions = addOptions(flightRecorderOptions, "stackdepth").append(stackdepth.intValue());
+         if (loglevel != null)
+            flightRecorderOptions = addOptions(flightRecorderOptions, "loglevel").append(loglevel.name());
+         if (forceDebugNonSafepoints) {
+            ensureArg(args, "-XX:+UnlockDiagnosticVMOptions");
+            ensureArg(args, "-XX:+DebugNonSafepoints");
+         }
          ensureArg(args, "-XX:+UnlockCommercialFeatures");
          ensureArg(args, "-XX:+FlightRecorder");
+         if (flightRecorderOptions != null) {
+            replace(args, "-XX:FlightRecorderOptions", flightRecorderOptions.toString());
+         }
          replace(args, "-XX:StartFlightRecording", recordingParams.toString());
+      }
+
+      private StringBuilder addOptions(StringBuilder options, String option) {
+         if (options == null) {
+            return new StringBuilder("=").append(option).append('=');
+         } else {
+            return options.append(',').append(option).append('=');
+         }
       }
    }
 
@@ -388,6 +421,10 @@ public class VmArgs implements Serializable {
       @Property(doc = "Controls the use of tiered compilation")
       private Boolean tieredCompilation;
 
+      @RequireDiagnostic
+      @Property(doc = "Generate debugging info when not on safepoints.")
+      private Boolean debugNonSafepoints;
+
       @Override
       public void setArgs(List<String> args) {
          if (preserveFramePointer != null)
@@ -412,6 +449,8 @@ public class VmArgs implements Serializable {
             replace(args, "-XX:InlineSmallCode=", inlineSmallCode.toString());
          if (tieredCompilation != null)
             set(args, "TieredCompilation", tieredCompilation);
+         if (debugNonSafepoints != null)
+            set(args, "DebugNonSafepoints", debugNonSafepoints);
       }
    }
 
