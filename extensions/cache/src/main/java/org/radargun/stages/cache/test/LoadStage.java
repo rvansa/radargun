@@ -2,6 +2,7 @@ package org.radargun.stages.cache.test;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.radargun.config.Property;
@@ -15,6 +16,7 @@ import org.radargun.stages.test.TransactionMode;
 import org.radargun.traits.BasicOperations;
 import org.radargun.traits.BulkOperations;
 import org.radargun.traits.InjectTrait;
+import org.radargun.traits.LocalBasicOperations;
 import org.radargun.traits.Transactional;
 import org.radargun.utils.Fuzzy;
 import org.radargun.utils.TimeConverter;
@@ -51,6 +53,12 @@ public class LoadStage extends org.radargun.stages.test.LoadStage {
    @Property(doc = "This option forces local loading of all keys on all slaves in this group (not only numEntries/numNodes). Default is false.")
    protected boolean loadAllKeys = false;
 
+   @Property(doc = "Load values using local operations. Note that different nodes may end up with different values. Default is false.")
+   protected boolean localLoad = false;
+
+   @Property(doc = "Specify on which nodes should we load the values, according to the ownership info. Applicable only when local-load is set to true. Default is all nodes.")
+   protected Set<LocalBasicOperations.Ownership> localLoadOwners = null;
+
    @Property(doc = "If set to true, the entries are removed instead of being inserted. Default is false.")
    private boolean remove = false;
 
@@ -78,6 +86,9 @@ public class LoadStage extends org.radargun.stages.test.LoadStage {
    @InjectTrait(dependency = InjectTrait.Dependency.OPTIONAL)
    protected BulkOperations bulkOperations;
 
+   @InjectTrait(dependency = InjectTrait.Dependency.OPTIONAL)
+   protected LocalBasicOperations localOperations;
+
    @InjectTrait
    protected Transactional transactional;
 
@@ -89,6 +100,18 @@ public class LoadStage extends org.radargun.stages.test.LoadStage {
          } else if (transactionSize <= 0) {
             throw new IllegalStateException("Transaction size was not configured");
          }
+      }
+      if (batchSize > 0 && bulkOperations == null) {
+         throw new IllegalArgumentException("Bulk operations have been enabled, but they are not supported by current service");
+      }
+      if (localLoad && localOperations == null) {
+         throw new IllegalStateException("Service does not support local operations");
+      }
+      if (localLoad && batchSize > 0) {
+         throw new IllegalStateException("Local-mode batches are not supported");
+      }
+      if (localLoad && useTransactions == TransactionMode.ALWAYS) {
+         throw new IllegalStateException("Local transactional operations are not supported");
       }
 
       slaveState.put(KeyGenerator.KEY_GENERATOR, keyGenerator);
@@ -103,10 +126,9 @@ public class LoadStage extends org.radargun.stages.test.LoadStage {
       int globalThreadIndex = loadAllKeys ? threadIndex : threadBase + threadIndex;
       LoaderIds loaderIds = new RangeIds(keyIdOffset + numEntries * globalThreadIndex / totalThreads, keyIdOffset + numEntries * (globalThreadIndex + 1) / totalThreads);
       if (batchSize > 0) {
-         if (batchSize > 0 && bulkOperations == null) {
-            throw new IllegalArgumentException("Bulk operations have been enabled, but they are not supported by current service");
-         }
          return useTransactions ? new BulkTxLoader(threadIndex, loaderIds) : new BulkNonTxLoader(threadIndex, loaderIds);
+      } else if (localLoad) {
+         return new LocalLoader(threadIndex, loaderIds);
       } else {
          return useTransactions ? new TxLoader(threadIndex, loaderIds) : new NonTxLoader(threadIndex, loaderIds);
       }
@@ -245,13 +267,18 @@ public class LoadStage extends org.radargun.stages.test.LoadStage {
       protected abstract void resetCache();
    }
 
-   private class NonTxLoader extends CacheLoader {
+   private abstract class BaseNonTxLoader extends CacheLoader {
       private final BasicOperations.Cache<Object, Object> cache;
 
-      public NonTxLoader(int index, LoaderIds loaderIds) {
+      public BaseNonTxLoader(int index, LoaderIds loaderIds) {
          super(index, loaderIds);
-         String cacheName = cacheSelector.getCacheName(threadIndex);
-         cache = basicOperations.getCache(cacheName);
+         cache = initCache();
+      }
+
+      protected abstract BasicOperations.Cache<Object, Object> initCache();
+
+      protected boolean checkKey(Object key) {
+         return true;
       }
 
       @Override
@@ -265,6 +292,9 @@ public class LoadStage extends org.radargun.stages.test.LoadStage {
             return false;
          }
          Object key = keyGenerator.generateKey(keyId);
+         if (!checkKey(key)) {
+            return true;
+         }
          Object value = valueGenerator.generateValue(key, size, random);
          boolean success = false;
          for (int i = 0; i < maxLoadAttempts; ++i) {
@@ -293,6 +323,38 @@ public class LoadStage extends org.radargun.stages.test.LoadStage {
          }
          logLoaded(1, size, remove);
          return true;
+      }
+   }
+
+   private class NonTxLoader extends BaseNonTxLoader {
+      public NonTxLoader(int index, LoaderIds loaderIds) {
+         super(index, loaderIds);
+      }
+
+      @Override
+      protected BasicOperations.Cache<Object, Object> initCache() {
+         String cacheName = cacheSelector.getCacheName(threadIndex);
+         return basicOperations.getCache(cacheName);
+      }
+   }
+
+   private class LocalLoader extends BaseNonTxLoader {
+      private LocalBasicOperations.Cache<Object, Object> localCache;
+
+      public LocalLoader(int index, LoaderIds loaderIds) {
+         super(index, loaderIds);
+      }
+
+      @Override
+      protected BasicOperations.Cache<Object, Object> initCache() {
+         String cacheName = cacheSelector.getCacheName(threadIndex);
+         localCache = localOperations.getLocalCache(cacheName);
+         return localCache;
+      }
+
+      @Override
+      protected boolean checkKey(Object key) {
+         return localLoadOwners == null || localLoadOwners.contains(localCache.getOwnership(key));
       }
    }
 

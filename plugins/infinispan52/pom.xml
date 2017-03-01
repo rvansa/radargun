@@ -106,6 +106,11 @@
          <artifactId>h2</artifactId>
          <version>${version.h2}</version>
       </dependency>
+       <dependency>
+           <groupId>org.radargun</groupId>
+           <artifactId>radargun-cache</artifactId>
+           <version>3.0.0-SNAPSHOT</version>
+       </dependency>
 
    </dependencies>
 

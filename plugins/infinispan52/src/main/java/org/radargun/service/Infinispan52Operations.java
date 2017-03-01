@@ -1,5 +1,6 @@
 package org.radargun.service;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import javax.transaction.Status;
@@ -7,6 +8,8 @@ import javax.transaction.TransactionManager;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.context.Flag;
+import org.infinispan.distribution.DistributionManager;
+import org.infinispan.remoting.transport.Address;
 import org.radargun.logging.Log;
 import org.radargun.logging.LogFactory;
 import org.radargun.traits.InMemoryBasicOperations;
@@ -41,6 +44,16 @@ public final class Infinispan52Operations
       return new Infinispan52CacheImpl<K, V>(service, (AdvancedCache<K, V>) service.getCache(cacheName).getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL));
    }
 
+   private static Ownership getOwnership(Object key, DistributionManager distributionManager, Address localAddress) {
+      List<Address> owners = distributionManager.locate(key);
+      if (owners.isEmpty()) return Ownership.NON_OWNER;
+      if (owners.get(0).equals(localAddress)) return Ownership.PRIMARY;
+      for (int i = 1; i < owners.size(); ++i) {
+         if (owners.get(i).equals(localAddress)) return Ownership.BACKUP;
+      }
+      return Ownership.NON_OWNER;
+   }
+
    private interface Infinispan52Cache<K, V> extends InfinispanCache<K, V> {}
 
    private static final class Infinispan52CacheImpl<K, V> implements Infinispan52Cache<K, V> {
@@ -50,11 +63,15 @@ public final class Infinispan52Operations
       protected final InfinispanEmbeddedService service;
       protected final org.infinispan.AdvancedCache<K, V> impl;
       protected final org.infinispan.Cache<K, V> ignoreReturnValueImpl;
+      protected final DistributionManager distributionManager;
+      protected final Address localAddress;
 
       public Infinispan52CacheImpl(InfinispanEmbeddedService service, org.infinispan.AdvancedCache<K, V> impl) {
          this.service = service;
          this.impl = impl;
          this.ignoreReturnValueImpl = impl.withFlags(Flag.IGNORE_RETURN_VALUES);
+         this.distributionManager = impl.getDistributionManager();
+         this.localAddress = impl.getCacheManager().getAddress();
       }
 
       public void put(K key, V value) {
@@ -172,6 +189,11 @@ public final class Infinispan52Operations
             log.tracef("PUT_IF_ABSENT_WITH_LIFESPAN cache=%s key=%s value=%s lifespan=%s maxIdle=%s", impl.getName(), key, value, lifespan, maxIdleTime);
          return impl.putIfAbsent(key, value, lifespan, TimeUnit.MILLISECONDS, maxIdleTime, TimeUnit.MILLISECONDS) == null;
       }
+
+      @Override
+      public Ownership getOwnership(Object key) {
+         return Infinispan52Operations.getOwnership(key, distributionManager, localAddress);
+      }
    }
 
    private static final class ExplicitLockingCache52<K, V> implements Infinispan52Cache<K, V> {
@@ -180,11 +202,15 @@ public final class Infinispan52Operations
       final Infinispan52Cache<K, V> delegate;
       final TransactionManager tm;
       final AdvancedCache<K, V> impl;
+      final DistributionManager distributionManager;
+      final Address localAddress;
 
       public ExplicitLockingCache52(Infinispan52Cache<K, V> delegate, AdvancedCache<K, V> cache) {
          this.delegate = delegate;
          this.impl = cache;
          this.tm = cache.getTransactionManager();
+         this.distributionManager = cache.getDistributionManager();
+         this.localAddress = cache.getCacheManager().getAddress();
       }
 
       /**
@@ -382,6 +408,10 @@ public final class Infinispan52Operations
          delegate.clear();
       }
 
+      @Override
+      public Ownership getOwnership(Object key) {
+         return Infinispan52Operations.getOwnership(key, distributionManager, localAddress);
+      }
    }
 
 }

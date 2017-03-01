@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.context.Flag;
+import org.infinispan.distribution.DistributionManager;
 import org.radargun.logging.Log;
 import org.radargun.logging.LogFactory;
 import org.radargun.traits.BasicOperations;
@@ -33,7 +34,7 @@ public class InfinispanOperations implements BasicOperations, ConditionalOperati
       return new Cache<K, V>(service, (AdvancedCache<K, V>) service.getCache(cacheName).getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL));
    }
 
-   protected interface InfinispanCache<K, V> extends BasicOperations.Cache<K, V>, ConditionalOperations.Cache<K, V>, TemporalOperations.Cache<K, V>, AdvancedCacheHolder {}
+   protected interface InfinispanCache<K, V> extends BasicOperations.Cache<K, V>, ConditionalOperations.Cache<K, V>, TemporalOperations.Cache<K, V>, AdvancedCacheHolder, LocalBasicOperations.Cache<K, V> {}
 
    protected static class Cache<K, V> implements InfinispanCache<K, V> {
       protected final Log log = LogFactory.getLog(getClass());
@@ -42,11 +43,13 @@ public class InfinispanOperations implements BasicOperations, ConditionalOperati
       protected final InfinispanEmbeddedService service;
       protected final org.infinispan.AdvancedCache<K, V> impl;
       protected final org.infinispan.Cache<K, V> ignoreReturnValueImpl;
+      protected final DistributionManager distributionManager;
 
       public Cache(InfinispanEmbeddedService service, org.infinispan.AdvancedCache<K, V> impl) {
          this.service = service;
          this.impl = impl;
          this.ignoreReturnValueImpl = impl.withFlags(Flag.SKIP_REMOTE_LOOKUP, Flag.SKIP_CACHE_LOAD);
+         this.distributionManager = impl.getDistributionManager();
       }
 
       public void put(K key, V value) {
@@ -163,6 +166,11 @@ public class InfinispanOperations implements BasicOperations, ConditionalOperati
          if (trace)
             log.tracef("PUT_IF_ABSENT_WITH_LIFESPAN cache=%s key=%s value=%s lifespan=%s maxIdle=%s", impl.getName(), key, value, lifespan, maxIdleTime);
          return impl.putIfAbsent(key, value, lifespan, TimeUnit.MILLISECONDS, maxIdleTime, TimeUnit.MILLISECONDS) == null;
+      }
+
+      @Override
+      public Ownership getOwnership(Object key) {
+         return distributionManager.getLocality(key).isLocal() ? Ownership.OWNER : Ownership.NON_OWNER;
       }
    }
 }
