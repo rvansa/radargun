@@ -14,10 +14,12 @@ import org.radargun.sysmonitor.MasterMonitors;
 import org.radargun.sysmonitor.MemoryUsageMonitor;
 import org.radargun.sysmonitor.NetworkBytesMonitor;
 import org.radargun.sysmonitor.OpenFilesMonitor;
+import org.radargun.sysmonitor.RssMonitor;
 import org.radargun.sysmonitor.SlaveMonitors;
 import org.radargun.traits.InjectTrait;
 import org.radargun.traits.InternalsExposition;
 import org.radargun.traits.JmxConnectionProvider;
+import org.radargun.utils.SystemUtils;
 import org.radargun.utils.TimeConverter;
 
 /**
@@ -74,9 +76,9 @@ public class MonitorStartStage extends AbstractDistStage {
       monitors.addMonitor(new CpuUsageMonitor(jmxConnectionProvider, timeline));
       monitors.addMonitor(new MemoryUsageMonitor(jmxConnectionProvider, timeline));
       monitors.addMonitor(new GcMonitor(jmxConnectionProvider, timeline));
-      // We can't read open files on Windows
-      if (!System.getProperty("os.name").toLowerCase().contains("win")) {
-         monitors.addMonitor(new OpenFilesMonitor(jmxConnectionProvider, timeline));
+      monitors.addMonitor(new OpenFilesMonitor(jmxConnectionProvider, timeline));
+      if (SystemUtils.IS_LINUX) {
+         monitors.addMonitor(new RssMonitor(timeline));
       }
       if (interfaceName != null) {
          monitors.addMonitor(NetworkBytesMonitor.createReceiveMonitor(interfaceName, timeline));
